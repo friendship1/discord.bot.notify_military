@@ -218,7 +218,7 @@ func loadCookies() (cookies []*http.Cookie, err error) {
 }
 
 func getCookies(doRenew bool) (ret_cookies []*http.Cookie, ret_err error) {
-	stat, e := os.Stat(pathCookieFile)
+	_ , e := os.Stat(pathCookieFile)
 
 	if os.IsNotExist(e) || len(gjson.Parse(readFileAsString(pathCookieFile)).Get("cookies").Array()) == 0 {
 		log.Println(pathCookieFile + " not exist or empty")
@@ -237,11 +237,11 @@ func getCookies(doRenew bool) (ret_cookies []*http.Cookie, ret_err error) {
         }
 	}
 
-	if stat.IsDir() {
+	// if stat.IsDir() {
 		// it's folder
-		log.Fatalln(pathCookieFile + " is folder")
+		// log.Fatalln(pathCookieFile + " is folder")
 		// return nil, 1
-	}
+	// }
 
 	// exist but get a renew request
 	if doRenew {
