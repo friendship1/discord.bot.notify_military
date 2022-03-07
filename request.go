@@ -58,11 +58,17 @@ func getDayInfo(target time.Time) gjson.Result {
 	for {
 		//log.Println("cookies:", cookies)
 		// load cookie if not exist
-		if len(cookies) == 0 {
 			//log.Println("getCookies(false)")
-			cookies = getCookies(false)
+        ret_cookies, err := getCookies(false)
+        cookies = ret_cookies
 			//log.Println("cookies:", cookies)
-		}
+		if err != nil {
+		    log.Println("failed, try more..")
+		    time.Sleep(time.Second * 60)
+            continue
+		} else {
+			log.Println("success to renew cookie")
+        }
 
 		if len(cookies) > 0 {
 			//log.Println("getMonthInfo")
@@ -79,19 +85,6 @@ func getDayInfo(target time.Time) gjson.Result {
 				time.Sleep(time.Millisecond * 100)
 			}
 		}
-
-		// somethings wrong
-		// renew cookie
-		log.Println("cookie may be expired, try to renew cookie...")
-		cookies = getCookies(true)
-		if cookies != nil {
-			log.Println("success to renew cookie")
-			continue
-		}
-
-		log.Println("failed, try more..")
-
-		// failed. try more...
 		time.Sleep(time.Second * 1)
 	}
 }

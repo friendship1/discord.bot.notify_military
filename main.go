@@ -5,6 +5,7 @@ import (
 	"os"
 	"os/signal"
 	"syscall"
+	"runtime"
 
 	"github.com/bwmarrin/discordgo"
 	"github.com/robfig/cron/v3"
@@ -26,6 +27,7 @@ func init() {
 
 func main() {
 	log.SetFlags(log.LstdFlags | log.Lshortfile)
+	runtime.GOMAXPROCS(1)
 
 	// create discord session
 	discord, e := discordgo.New("Bot " + config.Get("discord.botToken").String())

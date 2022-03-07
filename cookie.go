@@ -15,18 +15,32 @@ import (
 	"github.com/tidwall/sjson"
 )
 
-func login(myID, myPW string) (cookies []*http.Cookie) {
-	ctx, cancel := chromedp.NewContext(
-		context.Background(),
+func login_retry(myID, myPW string) (cookies []*http.Cookie) {
+    for i := 0; ; i++ {
+        cookies, err := login(myID, myPW)
+        if err == nil {
+            return cookies
+        }
+        time.Sleep(1*time.Second)
+    }
+}
+
+func login(myID, myPW string) (cookies []*http.Cookie, err error) {
+    ctx, cancel := chromedp.NewContext(
+	    context.TODO(),
 	)
 	defer cancel()
+    ctx, cancel = context.WithTimeout(ctx, 30*time.Second)
+    defer cancel()
 	// 로그인 화면 DOM path
 	queryFormID := `//input[@type="text"][@id="oneid"]`
 	queryFormPW := `//input[@type="password"][@id="onepassword"]`
-	queryLoginSubmitButton := `//button[@class="btn btn-primary rounded btn-block w-100 z-depth-0 action-login font-weight-bold waves-effect waves-light"]`
+	// queryLoginSubmitButton := `//button[@class="btn btn-primary rounded btn-block w-100 z-depth-0 action-login font-weight-bold waves-effect waves-light"]`
+	queryLoginSubmitButton := `//button[@class="mt-0 btn btn-primary rounded btn-block w-100 z-depth-0 action-login font-weight-bold waves-effect waves-light"]`
 	queryPositionSubmitButton := `//button[@id="btnLoginProc"]`
 
 	// 로그인 화면 URL
+	// AGAIN:
 	currentURL := ""
 	if e := chromedp.Run(ctx,
 		chromedp.EmulateViewport(1920, 1080),
@@ -166,9 +180,12 @@ func login(myID, myPW string) (cookies []*http.Cookie) {
 		}),
 	); e != nil {
 		log.Println(e)
+        // panic(e)
+        return nil, e
+		// goto AGAIN
+    } else {
+	    return cookies, nil
 	}
-
-	return cookies
 }
 
 func saveCookies(cookies []*http.Cookie) {
@@ -181,22 +198,26 @@ func saveCookies(cookies []*http.Cookie) {
 	if e := ioutil.WriteFile(pathCookieFile, []byte(json), 0644); e != nil {
 		log.Println(e)
 	}
+	log.Println(pathCookieFile + " : cookie saved")
 }
 
-func loadCookies() []*http.Cookie {
-	cookies := []*http.Cookie{}
-
-	for _, v := range gjson.Parse(readFileAsString(pathCookieFile)).Get("cookies").Array() {
-		cookies = append(cookies, &http.Cookie{
-			Name:  v.Get("Name").String(),
-			Value: v.Get("Value").String(),
-		})
-	}
-
-	return cookies
+func loadCookies() (cookies []*http.Cookie, err error) {
+	// cookies := []*http.Cookie{}
+    str, e := ioutil.ReadFile(pathCookieFile)
+    if e != nil {
+        return nil, e
+    } else {
+        for _, v := range gjson.Parse(string(str)).Get("cookies").Array() {
+            cookies = append(cookies, &http.Cookie{
+                Name:  v.Get("Name").String(),
+                Value: v.Get("Value").String(),
+            })
+        }
+	    return cookies, nil
+    }
 }
 
-func getCookies(doRenew bool) []*http.Cookie {
+func getCookies(doRenew bool) (ret_cookies []*http.Cookie, ret_err error) {
 	stat, e := os.Stat(pathCookieFile)
 
 	if os.IsNotExist(e) || len(gjson.Parse(readFileAsString(pathCookieFile)).Get("cookies").Array()) == 0 {
@@ -204,17 +225,22 @@ func getCookies(doRenew bool) []*http.Cookie {
 
 		// cookie file is not exist or empty
 		// get cookie from online
-		cookies := login(
+		cookies, err := login(
 			config.Get("login.id").String(),
 			config.Get("login.pw").String())
-		saveCookies(cookies)
-		return cookies
+        if err != nil {
+            return nil, err
+        } else {
+    		saveCookies(cookies)
+    		log.Println(pathCookieFile + " saved")
+    		// return cookies, nil
+        }
 	}
 
 	if stat.IsDir() {
 		// it's folder
 		log.Fatalln(pathCookieFile + " is folder")
-		return nil
+		// return nil, 1
 	}
 
 	// exist but get a renew request
@@ -222,18 +248,27 @@ func getCookies(doRenew bool) []*http.Cookie {
 		log.Println(pathCookieFile + " exist, remove old cookie")
 		if e := os.RemoveAll(pathCookieFile); e != nil {
 			log.Fatal(e)
+            return nil, e
 		}
 
-		cookies := login(
+		cookies, err := login(
 			config.Get("login.id").String(),
 			config.Get("login.pw").String())
-		saveCookies(cookies)
-		log.Println(pathCookieFile + " saved")
-		return cookies
+        if err != nil {
+            return nil, err
+        } else {
+		    saveCookies(cookies)
+    		log.Println(pathCookieFile + " saved")
+		    // return cookies, nil
+        }
 	}
 
 	// exist
 	//log.Println(pathCookieFile + " exist, loading")
-	cookies := loadCookies()
-	return cookies
+	ret_cookies, err2 := loadCookies()
+    if err2 != nil {
+        return nil, err2
+    } else {
+    	return ret_cookies, nil
+    }
 }
