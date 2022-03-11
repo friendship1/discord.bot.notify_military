@@ -24,6 +24,7 @@ func getMonthInfo(cookies []*http.Cookie, yearAndMonth string) string {
 		return ""
 	}
 
+    http.DefaultClient.Timeout = time.Minute * 5
 	client := &http.Client{}
 	req, err := http.NewRequest("POST", "https://stud.dgist.ac.kr/usd/usdqSptRechMngtStud/listPbsvAppe.do", payload)
 	if err != nil {
